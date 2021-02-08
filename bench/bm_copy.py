@@ -44,7 +44,8 @@ class benchmark_copy(gr.top_block):
         rollover = 1234
         input_data = [complex(i,-i) for i in range(rollover+1)]
         src = blocks.vector_source_c(input_data, True)
-        self.snk = snk = bench.seqval_c(rollover)
+        # self.snk = snk = bench.seqval_c(rollover)
+        self.snk = snk = blocks.null_sink(gr.sizeof_gr_complex)
 
         # src = blocks.null_source(
         #     gr.sizeof_gr_complex*1)
@@ -99,7 +100,7 @@ def main(top_block_cls=benchmark_copy, options=None):
     tb.wait()
     endt = time.time()
 
-    print(f'[PROFILE_VALID]{tb.snk.valid()}[PROFILE_VALID]')
+    # print(f'[PROFILE_VALID]{tb.snk.valid()}[PROFILE_VALID]')
     print(f'[PROFILE_TIME]{endt-startt}[PROFILE_TIME]')
 
 if __name__ == '__main__':
