@@ -1,1 +1,2 @@
 ./include/legacy_cudaops/copy.hError occurred while running CASTXML:  status:1
+./include/legacy_cudaops/cufft.hError occurred while running CASTXML:  status:1

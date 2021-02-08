@@ -23,6 +23,7 @@ namespace py = pybind11;
 // BINDING_FUNCTION_PROTOTYPES(
     void bind_memmodel(py::module& m);
     void bind_copy(py::module& m);
+    void bind_cufft(py::module& m);
 // ) END BINDING_FUNCTION_PROTOTYPES
 
 
@@ -53,5 +54,6 @@ PYBIND11_MODULE(legacy_cudaops_python, m)
     // BINDING_FUNCTION_CALLS(
         bind_memmodel(m);
     bind_copy(m);
+    bind_cufft(m);
     // ) END BINDING_FUNCTION_CALLS
 }

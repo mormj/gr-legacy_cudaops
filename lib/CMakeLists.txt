@@ -26,6 +26,7 @@ target_compile_options(gnuradio-legacycudaops-cu PRIVATE --default-stream per-th
 
 list(APPEND legacy_cudaops_sources
     copy_impl.cc
+    cufft_impl.cc
 )
 
 set(legacy_cudaops_sources "${legacy_cudaops_sources}" PARENT_SCOPE)
@@ -39,6 +40,7 @@ target_link_libraries(gnuradio-legacy_cudaops PUBLIC
 gnuradio::gnuradio-runtime
 ${CUDA_CUDA_LIBRARY}   # CUDA Driver API
 ${CUDA_CUDART_LIBRARY} # CUDA Runtime API
+${CUDA_CUFFT_LIBRARIES}
 )
 target_link_libraries(gnuradio-legacy_cudaops PRIVATE gnuradio-legacycudaops-cu
 )

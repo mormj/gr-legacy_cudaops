@@ -1,6 +1,6 @@
 id: legacy_cudaops_copy
-label: copy
-category: '[legacy_cudaops]'
+label: Copy (CUDA)
+category: '[CUDAOPS]'
 
 templates:
   imports: import legacy_cudaops

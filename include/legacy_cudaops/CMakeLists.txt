@@ -11,5 +11,6 @@
 ########################################################################
 install(FILES
     api.h
-    copy.h DESTINATION include/legacy_cudaops
+    copy.h
+    cufft.h DESTINATION include/legacy_cudaops
 )
