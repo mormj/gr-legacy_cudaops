@@ -54,7 +54,7 @@ copy_impl::copy_impl(int batch_size, int load, memory_model_t mem_model)
     }
 
     get_block_and_grid(&d_min_grid_size, &d_block_size);
-    std::cout << "minGrid: " << d_min_grid_size << ", blockSize: " << d_block_size
+    std::cerr << "minGrid: " << d_min_grid_size << ", blockSize: " << d_block_size
               << std::endl;
 
     // if (batch_size < d_block_size)

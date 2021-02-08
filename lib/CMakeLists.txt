@@ -45,6 +45,7 @@ target_link_libraries(gnuradio-legacy_cudaops PRIVATE gnuradio-legacycudaops-cu
 target_include_directories(gnuradio-legacy_cudaops
     PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../include>
     PUBLIC $<INSTALL_INTERFACE:include>
+    ${CUDA_INCLUDE_DIRS}
   )
 set_target_properties(gnuradio-legacy_cudaops PROPERTIES DEFINE_SYMBOL "gnuradio_legacy_cudaops_EXPORTS")
 
