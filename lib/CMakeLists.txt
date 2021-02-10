@@ -16,6 +16,8 @@ include(GrPlatform) #define LIB_SUFFIX
 ############################################################################
 find_package(CUDA REQUIRED)
 add_library(gnuradio-legacycudaops-cu STATIC 
+add.cu
+multiply.cu
 copy.cu
 window.cu
 )

@@ -12,14 +12,28 @@
 #include "config.h"
 #endif
 
-#include <legacy_cudaops/fft_filter.h>
 #include <gnuradio/logger.h>
+#include <legacy_cudaops/fft_filter.h>
 #include <volk/volk.h>
 #include <cstring>
 #include <iostream>
 #include <memory>
 
 #include "helper_cuda.h"
+extern void exec_add_kernel_cc(cuFloatComplex* in,
+                               cuFloatComplex* out,
+                               cuFloatComplex* a,
+                               int veclen,
+                               int batch_size);
+
+extern void exec_window_kernel_ccf(
+    cuFloatComplex* in, cuFloatComplex* out, float* window, int veclen, int batch_size);
+
+void exec_multiply_kernel_ccc(cuFloatComplex* in,
+                              cuFloatComplex* out,
+                              cuFloatComplex* a,
+                              int veclen,
+                              int batch_size);
 
 namespace gr {
 namespace legacy_cudaops {
@@ -35,8 +49,6 @@ fft_filter_ccf::fft_filter_ccf(int decimation,
 {
     gr::configure_default_loggers(d_logger, d_debug_logger, "fft_filter_ccf");
     set_taps(taps);
-
-
 }
 
 /*
@@ -51,6 +63,8 @@ int fft_filter_ccf::set_taps(const std::vector<float>& taps)
     d_tail.resize(tailsize());
     for (i = 0; i < tailsize(); i++)
         d_tail[i] = 0;
+
+    checkCudaErrors(cudaMemset(d_dev_tail, 0, d_fftsize));
 
     gr_complex* in = d_fwdfft->get_inbuf();
     gr_complex* out = d_fwdfft->get_outbuf();
@@ -70,6 +84,11 @@ int fft_filter_ccf::set_taps(const std::vector<float>& taps)
     // now copy output to d_xformed_taps
     for (i = 0; i < d_fftsize; i++)
         d_xformed_taps[i] = out[i];
+
+    checkCudaErrors(cudaMemcpy(d_dev_taps,
+                               &d_xformed_taps[0],
+                               d_fftsize * sizeof(gr_complex),
+                               cudaMemcpyHostToDevice));
 
     return d_nsamples;
 }
@@ -94,25 +113,31 @@ void fft_filter_ccf::compute_sizes(int ntaps)
         d_fwdfft = std::make_unique<fft::fft_complex_fwd>(d_fftsize, d_nthreads);
         d_invfft = std::make_unique<fft::fft_complex_rev>(d_fftsize, d_nthreads);
 
-        checkCudaErrors(cufftCreate(&d_plan_fwd));
-        checkCudaErrors(cufftCreate(&d_plan_rev));
+        checkCudaErrors(cufftCreate(&d_plan));
 
         size_t workSize;
-        checkCudaErrors(cufftMakePlanMany(
-            d_plan_fwd, 1, &d_fftsize, NULL, 1, 1, NULL, 1, 1, CUFFT_C2C, d_batch_size, &workSize));
-        checkCudaErrors(cufftMakePlanMany(
-            d_plan_rev, 1, &d_fftsize, NULL, 1, 1, NULL, 1, 1, CUFFT_C2C, d_batch_size, &workSize));
+        checkCudaErrors(cufftMakePlanMany(d_plan,
+                                          1,
+                                          &d_fftsize,
+                                          NULL,
+                                          1,
+                                          1,
+                                          NULL,
+                                          1,
+                                          1,
+                                          CUFFT_C2C,
+                                          d_batch_size,
+                                          &workSize));
 
-        checkCudaErrors(cudaMalloc((void**)&d_data_fwd,
-                            sizeof(cufftComplex) * d_fftsize * d_batch_size));
-        checkCudaErrors(cudaMalloc((void**)&d_data_rev,
-                            sizeof(cufftComplex) * d_fftsize * d_batch_size));
+        checkCudaErrors(
+            cudaMalloc((void**)&d_data, sizeof(cufftComplex) * d_fftsize * d_batch_size));
+        checkCudaErrors(cudaMalloc((void**)&d_dev_tail,
+                                   sizeof(cufftComplex) * d_fftsize * d_batch_size));
 
         d_xformed_taps.resize(d_fftsize);
 
         checkCudaErrors(cudaMalloc((void**)&d_dev_taps,
-                            sizeof(cufftReal) * d_fftsize * d_batch_size));
-
+                                   sizeof(cufftComplex) * d_fftsize * d_batch_size));
     }
 }
 
@@ -130,53 +155,41 @@ int fft_filter_ccf::filter(int nitems, const gr_complex* input, gr_complex* outp
     int ninput_items = nitems * d_decimation;
 
     for (int i = 0; i < ninput_items; i += d_nsamples) {
+        checkCudaErrors(cudaMemcpy(
+            d_data, &input[i], d_nsamples * sizeof(gr_complex), cudaMemcpyHostToDevice));
 
-        #if 0
-        memcpy(d_fwdfft->get_inbuf(), &input[i], d_nsamples * sizeof(gr_complex));
+        checkCudaErrors(cudaMemset(
+            d_data + d_nsamples, 0, sizeof(gr_complex) * (d_fftsize - d_nsamples)));
 
-        for (j = d_nsamples; j < d_fftsize; j++)
-            d_fwdfft->get_inbuf()[j] = 0;
-
-        d_fwdfft->execute(); // compute fwd xform
-
-        gr_complex* a = d_fwdfft->get_outbuf();
-        gr_complex* b = d_xformed_taps.data();
-        gr_complex* c = d_invfft->get_inbuf();
-
-        volk_32fc_x2_multiply_32fc_a(c, a, b, d_fftsize);
-
-        d_invfft->execute(); // compute inv xform
-
-        #endif
-
-        checkCudaErrors(
-                cudaMemcpy(d_data_fwd, &input[i], d_nsamples * sizeof(gr_complex), cudaMemcpyHostToDevice));
-
-        checkCudaErrors(
-                cudaMemset(d_data_fwd + d_nsamples, 0, d_fftsize-d_nsamples));
-
-        checkCudaErrors(cufftExecC2C(d_plan_fwd, d_data, d_data, CUFFT_FORWARD));
+        checkCudaErrors(cufftExecC2C(d_plan, d_data, d_data, CUFFT_FORWARD));
+        cudaDeviceSynchronize();
 
 
-        // add in the overlapping tail
+        exec_multiply_kernel_ccc(d_data, d_data, d_dev_taps, d_fftsize, 1);
+        cudaDeviceSynchronize();
 
-        for (j = 0; j < tailsize(); j++)
-            d_invfft->get_outbuf()[j] += d_tail[j];
+        checkCudaErrors(cufftExecC2C(d_plan, d_data, d_data, CUFFT_INVERSE));
 
-        // copy nsamples to output
+        cudaDeviceSynchronize();
+
+        checkCudaErrors(cudaMemcpy(
+            tmp, d_data, d_fftsize * sizeof(gr_complex), cudaMemcpyDeviceToHost));
+
+        exec_add_kernel_cc(d_data, d_data, d_dev_tail, tailsize(), 1);
+
+
+        cudaDeviceSynchronize();
+
         j = dec_ctr;
-        while (j < d_nsamples) {
-            *output++ = d_invfft->get_outbuf()[j];
-            j += d_decimation;
-        }
+        checkCudaErrors(cudaMemcpy(
+            &output[i], d_data, d_nsamples * sizeof(gr_complex), cudaMemcpyDeviceToHost));
         dec_ctr = (j - d_nsamples);
 
-        // stash the tail
-        if (!d_tail.empty()) {
-            memcpy(&d_tail[0],
-                   d_invfft->get_outbuf() + d_nsamples,
-                   tailsize() * sizeof(gr_complex));
-        }
+        // // stash the tail
+        checkCudaErrors(cudaMemcpy(d_dev_tail,
+                                   d_data + d_nsamples,
+                                   tailsize() * sizeof(gr_complex),
+                                   cudaMemcpyDeviceToDevice));
     }
 
     return nitems;
@@ -184,5 +197,5 @@ int fft_filter_ccf::filter(int nitems, const gr_complex* input, gr_complex* outp
 
 
 } /* namespace kernel */
-} /* namespace filter */
+} // namespace legacy_cudaops
 } /* namespace gr */

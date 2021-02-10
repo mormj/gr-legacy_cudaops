@@ -78,9 +78,10 @@ private:
     gr::logger_ptr d_logger, d_debug_logger;
 
     size_t d_batch_size = 1;
-    cufftHandle d_plan_fwd, d_plan_rev;
-    cufftComplex *d_data_fwd, *d_data_rev;
-    cufftReal *d_dev_taps;
+    cufftHandle d_plan;
+    cufftComplex *d_data;
+    cufftComplex *d_dev_tail;
+    cufftComplex *d_dev_taps;
 
 public:
     /*!
