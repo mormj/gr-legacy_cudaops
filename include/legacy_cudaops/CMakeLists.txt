@@ -12,5 +12,7 @@
 install(FILES
     api.h
     copy.h
-    cufft.h DESTINATION include/legacy_cudaops
+    cufft.h
+    fft_filter.h
+    fft_filter_ccf.h DESTINATION include/legacy_cudaops
 )

@@ -5,7 +5,7 @@
 # SPDX-License-Identifier: GPL-3.0
 #
 # GNU Radio Python Flow Graph
-# Title: FFT Demo
+# Title: FFT Filter Demo
 # GNU Radio version: v3.8.0.0-962-gee04cf72
 
 from distutils.version import StrictVersion
@@ -42,12 +42,12 @@ import legacy_cudaops
 
 from gnuradio import qtgui
 
-class fft_demo(gr.top_block, Qt.QWidget):
+class fft_filter_demo(gr.top_block, Qt.QWidget):
 
     def __init__(self):
-        gr.top_block.__init__(self, "FFT Demo", catch_exceptions=True)
+        gr.top_block.__init__(self, "FFT Filter Demo", catch_exceptions=True)
         Qt.QWidget.__init__(self)
-        self.setWindowTitle("FFT Demo")
+        self.setWindowTitle("FFT Filter Demo")
         qtgui.util.check_set_qss()
         try:
             self.setWindowIcon(Qt.QIcon.fromTheme('gnuradio-grc'))
@@ -65,7 +65,7 @@ class fft_demo(gr.top_block, Qt.QWidget):
         self.top_grid_layout = Qt.QGridLayout()
         self.top_layout.addLayout(self.top_grid_layout)
 
-        self.settings = Qt.QSettings("GNU Radio", "fft_demo")
+        self.settings = Qt.QSettings("GNU Radio", "fft_filter_demo")
 
         try:
             if StrictVersion(Qt.qVersion()) < StrictVersion("5.0.0"):
@@ -154,7 +154,7 @@ class fft_demo(gr.top_block, Qt.QWidget):
 
 
     def closeEvent(self, event):
-        self.settings = Qt.QSettings("GNU Radio", "fft_demo")
+        self.settings = Qt.QSettings("GNU Radio", "fft_filter_demo")
         self.settings.setValue("geometry", self.saveGeometry())
         self.stop()
         self.wait()
@@ -210,7 +210,7 @@ class fft_demo(gr.top_block, Qt.QWidget):
 
 
 
-def main(top_block_cls=fft_demo, options=None):
+def main(top_block_cls=fft_filter_demo, options=None):
 
     if StrictVersion("4.5.0") <= StrictVersion(Qt.qVersion()) < StrictVersion("5.0.0"):
         style = gr.prefs().get_string('qtgui', 'style', 'raster')

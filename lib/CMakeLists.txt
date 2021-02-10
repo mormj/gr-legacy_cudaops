@@ -17,6 +17,7 @@ include(GrPlatform) #define LIB_SUFFIX
 find_package(CUDA REQUIRED)
 add_library(gnuradio-legacycudaops-cu STATIC 
 copy.cu
+window.cu
 )
 set_target_properties(gnuradio-legacycudaops-cu PROPERTIES POSITION_INDEPENDENT_CODE ON)
 set_target_properties(gnuradio-legacycudaops-cu PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
@@ -27,6 +28,8 @@ target_compile_options(gnuradio-legacycudaops-cu PRIVATE --default-stream per-th
 list(APPEND legacy_cudaops_sources
     copy_impl.cc
     cufft_impl.cc
+    fft_filter.cc
+    fft_filter_ccf_impl.cc
 )
 
 set(legacy_cudaops_sources "${legacy_cudaops_sources}" PARENT_SCOPE)
@@ -38,6 +41,7 @@ endif(NOT legacy_cudaops_sources)
 add_library(gnuradio-legacy_cudaops SHARED ${legacy_cudaops_sources})
 target_link_libraries(gnuradio-legacy_cudaops PUBLIC 
 gnuradio::gnuradio-runtime
+gnuradio::gnuradio-fft
 ${CUDA_CUDA_LIBRARY}   # CUDA Driver API
 ${CUDA_CUDART_LIBRARY} # CUDA Runtime API
 ${CUDA_CUFFT_LIBRARIES}

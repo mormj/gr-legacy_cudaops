@@ -8,5 +8,6 @@
 
 install(FILES
     legacy_cudaops_copy.block.yml
-    legacy_cudaops_cufft.block.yml DESTINATION share/gnuradio/grc/blocks
+    legacy_cudaops_cufft.block.yml
+    legacy_cudaops_fft_filter_ccf.block.yml DESTINATION share/gnuradio/grc/blocks
 )

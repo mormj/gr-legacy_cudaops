@@ -31,7 +31,8 @@ include(GrPybind)
 list(APPEND legacy_cudaops_python_files
     memmodel_python.cc 
     copy_python.cc
-    cufft_python.cc python_bindings.cc)
+    cufft_python.cc
+    fft_filter_ccf_python.cc python_bindings.cc)
 
 GR_PYBIND_MAKE_OOT(legacy_cudaops 
    ../..

@@ -86,11 +86,21 @@ int copy_impl::work(int noutput_items,
             checkCudaErrors(cudaMemcpyAsync(
                 d_data, in + s * d_batch_size, mem_size, cudaMemcpyHostToDevice, stream));
 
-            apply_copy(d_data, d_data, d_batch_size / d_block_size, d_block_size, d_load, stream);
+            apply_copy(d_data,
+                       d_data,
+                       d_batch_size / d_block_size,
+                       d_block_size,
+                       d_load,
+                       stream);
         } else // if (d_mem_model == memory_model_t::PINNED)
         {
             memcpy(d_data, in + s * d_batch_size, mem_size);
-            apply_copy(d_data, d_data, d_batch_size / d_block_size, d_block_size, d_load, stream);
+            apply_copy(d_data,
+                       d_data,
+                       d_batch_size / d_block_size,
+                       d_block_size,
+                       d_load,
+                       stream);
         }
         // else
         // {
