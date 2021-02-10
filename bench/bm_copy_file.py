@@ -8,13 +8,41 @@
 # Title: Not titled yet
 # GNU Radio version: 3.9.0.0-git
 
-from gnuradio import gr, blocks
+from gnuradio import gr, blocks, analog
 import sys
 import signal
 from argparse import ArgumentParser
 import time
 import legacy_cudaops
 import bench
+import os
+
+class generate_file(gr.top_block):
+
+    def __init__(self, args):
+        gr.top_block.__init__(self, "Generate File", catch_exceptions=True)
+
+        ##################################################
+        # Variables
+        ##################################################
+        nsamples = args.samples
+        filename = args.filename
+
+        ##################################################
+        # Blocks
+        ##################################################
+        hd = blocks.head(gr.sizeof_gr_complex*1, 100000000)
+       
+        src = analog.fastnoise_source_c(analog.GR_GAUSSIAN, 1, 0, 8192)
+
+        snk = blocks.file_sink(gr.sizeof_gr_complex*1, filename, False)
+        snk.set_unbuffered(False)
+
+        ##################################################
+        # Connections
+        ##################################################
+        self.connect((src, 0), (hd, 0), (snk,0))
+
 
 class benchmark_copy(gr.top_block):
 
@@ -26,11 +54,12 @@ class benchmark_copy(gr.top_block):
         ##################################################
         nsamples = args.samples
         veclen = args.veclen
+        load = args.load
         actual_samples = (
             veclen) * int(nsamples / veclen)
         num_blocks = args.nblocks
         mem_model = args.memmodel
-        load = args.load
+        filename = args.filename
 
         ##################################################
         # Blocks
@@ -41,19 +70,11 @@ class benchmark_copy(gr.top_block):
                 legacy_cudaops.copy(
                     veclen, load, mem_model)
             )
-        rollover = 1234
-        input_data = [complex(i,-i) for i in range(rollover+1)]
-        # src = blocks.vector_source_c(input_data, True)
-        src = blocks.null_source(gr.sizeof_gr_complex)
-        # self.snk = snk = bench.seqval_c(rollover)
-        self.snk = snk = blocks.null_sink(gr.sizeof_gr_complex)
 
-        # src = blocks.null_source(
-        #     gr.sizeof_gr_complex*1)
-        # snk = blocks.null_sink(
-        #     gr.sizeof_gr_complex*1)
-        hd = blocks.head(
-            gr.sizeof_gr_complex*1, actual_samples)
+        src = blocks.file_source(gr.sizeof_gr_complex*1, filename, False, 0, 0)
+        snk = blocks.file_sink(gr.sizeof_gr_complex*1, os.path.join(os.path.dirname(os.path.abspath(filename)),'outfile.dat'), False)
+        snk.set_unbuffered(False)
+
 
         ##################################################
         # Connections
@@ -63,7 +84,7 @@ class benchmark_copy(gr.top_block):
         for i in range(1, num_blocks):
             self.connect((ptblocks[i-1], 0), (ptblocks[i], 0))
 
-        self.connect((ptblocks[num_blocks-1], 0), (hd, 0),
+        self.connect((ptblocks[num_blocks-1], 0),
                      (snk, 0))
 
 
@@ -71,8 +92,8 @@ def main(top_block_cls=benchmark_copy, options=None):
     parser = ArgumentParser(description='Run a flowgraph iterating over parameters for benchmarking')
     parser.add_argument('--rt_prio', help='enable realtime scheduling', action='store_true')
     parser.add_argument('--samples', type=int, default=1e6)
-    parser.add_argument('--veclen', type=int, default=128)
-    parser.add_argument('--nblocks', type=int, default=4)
+    parser.add_argument('--veclen', type=int, default=1024)
+    parser.add_argument('--nblocks', type=int, default=1)
     parser.add_argument('--load', type=int, default=1)
     parser.add_argument('--memmodel', type=int, default=0)
 
@@ -82,6 +103,11 @@ def main(top_block_cls=benchmark_copy, options=None):
 
     if args.rt_prio and gr.enable_realtime_scheduling() != gr.RT_OK:
         print("Error: failed to enable real-time scheduling.")
+
+    args.filename = os.path.join('/tmp',f'bm_copy_file_{int(args.samples)}')
+    if not os.path.exists(args.filename):
+        tb_pre = generate_file(args)
+        tb_pre.run()
 
     tb = top_block_cls(args)
 
