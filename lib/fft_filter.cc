@@ -24,16 +24,15 @@ extern void exec_add_kernel_cc(cuFloatComplex* in,
                                cuFloatComplex* out,
                                cuFloatComplex* a,
                                int veclen,
-                               int batch_size);
-
-extern void exec_window_kernel_ccf(
-    cuFloatComplex* in, cuFloatComplex* out, float* window, int veclen, int batch_size);
+                               int batch_size,
+                               cudaStream_t stream);
 
 void exec_multiply_kernel_ccc(cuFloatComplex* in,
                               cuFloatComplex* out,
                               cuFloatComplex* a,
                               int veclen,
-                              int batch_size);
+                              int batch_size,
+                              cudaStream_t stream);
 
 namespace gr {
 namespace legacy_cudaops {
@@ -47,6 +46,7 @@ fft_filter_ccf::fft_filter_ccf(int decimation,
                                int nthreads)
     : d_fftsize(-1), d_decimation(decimation), d_nthreads(nthreads)
 {
+    cudaStreamCreate(&stream);
     gr::configure_default_loggers(d_logger, d_debug_logger, "fft_filter_ccf");
     set_taps(taps);
 }
@@ -115,6 +115,8 @@ void fft_filter_ccf::compute_sizes(int ntaps)
 
         checkCudaErrors(cufftCreate(&d_plan));
 
+        checkCudaErrors(cufftSetStream(d_plan, stream));
+
         size_t workSize;
         checkCudaErrors(cufftMakePlanMany(d_plan,
                                           1,
@@ -155,39 +157,41 @@ int fft_filter_ccf::filter(int nitems, const gr_complex* input, gr_complex* outp
     int ninput_items = nitems * d_decimation;
 
     for (int i = 0; i < ninput_items; i += d_nsamples) {
-        checkCudaErrors(cudaMemcpy(
-            d_data, &input[i], d_nsamples * sizeof(gr_complex), cudaMemcpyHostToDevice));
+        checkCudaErrors(cudaMemcpyAsync(d_data,
+                                        &input[i],
+                                        d_nsamples * sizeof(gr_complex),
+                                        cudaMemcpyHostToDevice,
+                                        stream));
 
-        checkCudaErrors(cudaMemset(
-            d_data + d_nsamples, 0, sizeof(gr_complex) * (d_fftsize - d_nsamples)));
+        checkCudaErrors(cudaMemsetAsync(d_data + d_nsamples,
+                                        0,
+                                        sizeof(gr_complex) * (d_fftsize - d_nsamples),
+                                        stream));
 
         checkCudaErrors(cufftExecC2C(d_plan, d_data, d_data, CUFFT_FORWARD));
-        cudaDeviceSynchronize();
 
-
-        exec_multiply_kernel_ccc(d_data, d_data, d_dev_taps, d_fftsize, 1);
-        cudaDeviceSynchronize();
+        exec_multiply_kernel_ccc(d_data, d_data, d_dev_taps, d_fftsize, 1, stream);
 
         checkCudaErrors(cufftExecC2C(d_plan, d_data, d_data, CUFFT_INVERSE));
 
-        cudaDeviceSynchronize();
-
-        exec_add_kernel_cc(d_data, d_data, d_dev_tail, tailsize(), 1);
-
-
-        cudaDeviceSynchronize();
+        exec_add_kernel_cc(d_data, d_data, d_dev_tail, tailsize(), 1, stream);
 
         j = dec_ctr;
-        checkCudaErrors(cudaMemcpy(
-            &output[i], d_data, d_nsamples * sizeof(gr_complex), cudaMemcpyDeviceToHost));
+        checkCudaErrors(cudaMemcpyAsync(&output[i],
+                                        d_data,
+                                        d_nsamples * sizeof(gr_complex),
+                                        cudaMemcpyDeviceToHost,
+                                        stream));
         dec_ctr = (j - d_nsamples);
 
         // // stash the tail
-        checkCudaErrors(cudaMemcpy(d_dev_tail,
-                                   d_data + d_nsamples,
-                                   tailsize() * sizeof(gr_complex),
-                                   cudaMemcpyDeviceToDevice));
+        checkCudaErrors(cudaMemcpyAsync(d_dev_tail,
+                                        d_data + d_nsamples,
+                                        tailsize() * sizeof(gr_complex),
+                                        cudaMemcpyDeviceToDevice,
+                                        stream));
     }
+    cudaStreamSynchronize(stream);
 
     return nitems;
 }

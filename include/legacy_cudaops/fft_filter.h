@@ -83,6 +83,8 @@ private:
     cufftComplex *d_dev_tail;
     cufftComplex *d_dev_taps;
 
+    cudaStream_t stream;
+
 public:
     /*!
      * \brief Construct an FFT filter for complex vectors with the given taps and

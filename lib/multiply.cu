@@ -1,4 +1,7 @@
 #include <cuComplex.h>
+#include <cuda.h>
+#include <cuda_runtime.h>
+
 
 __global__ void
 multiply_kernel_ccc(cuFloatComplex* in, cuFloatComplex* out, cuFloatComplex* a, int veclen, int batch_size)
@@ -18,9 +21,10 @@ multiply_kernel_ccc(cuFloatComplex* in, cuFloatComplex* out, cuFloatComplex* a, 
     }
 }
 
-void exec_multiply_kernel_ccc(cuFloatComplex* in, cuFloatComplex* out, cuFloatComplex* a, int veclen, int batch_size)
+void exec_multiply_kernel_ccc(cuFloatComplex* in, cuFloatComplex* out, cuFloatComplex* a, int veclen, int batch_size,
+    cudaStream_t stream)
 {
     int block_size = 1024; // max num of threads
     int nblocks = (veclen * batch_size + block_size - 1) / block_size;
-    multiply_kernel_ccc<<<nblocks, block_size>>>(in, out, a, veclen, batch_size);
+    multiply_kernel_ccc<<<nblocks, block_size, 0, stream>>>(in, out, a, veclen, batch_size);
 }
