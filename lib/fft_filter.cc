@@ -172,9 +172,6 @@ int fft_filter_ccf::filter(int nitems, const gr_complex* input, gr_complex* outp
 
         cudaDeviceSynchronize();
 
-        checkCudaErrors(cudaMemcpy(
-            tmp, d_data, d_fftsize * sizeof(gr_complex), cudaMemcpyDeviceToHost));
-
         exec_add_kernel_cc(d_data, d_data, d_dev_tail, tailsize(), 1);
 
 
